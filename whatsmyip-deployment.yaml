@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whatsmyip-deployment
+  labels:
+    function: public
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      function: public
+  template:
+    metadata:
+      labels:
+        function: public
+    spec:
+      containers:
+      - name: whatsmyip
+        image: jtaylorthegreat/whatsmyip:latest
+        command: ["/bin/sh", "-c"]
+        args: ["/usr/sbin/apache2ctl -D FOREGROUND" ]
+      restartPolicy: Always
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: whatsmyip-svc
+spec:
+  selector:
+    function: public
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    name: http
+  type: LoadBalancer
+  externalTrafficPolicy: Local
