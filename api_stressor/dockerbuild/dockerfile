@@ -1,0 +1,5 @@
+FROM ubuntu
+ARG DEBIAN_FRONTEND=noninteractive
+WORKDIR /
+RUN apt update --yes && apt install curl jq --yes
+COPY ./sc2.sh ./sc2.sh
