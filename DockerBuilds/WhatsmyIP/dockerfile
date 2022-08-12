@@ -1,8 +1,0 @@
-FROM ubuntu
-ARG DEBIAN_FRONTEND=noninteractive
-WORKDIR /
-RUN apt update --yes && apt install apache2 php --yes && mkdir /var/www/whatsmyip
-COPY ./getip.conf /etc/apache2/sites-enabled/000-default.conf
-COPY ./index.php /var/www/whatsmyip
-EXPOSE 80
-CMD /usr/sbin/apache2ctl -D FOREGROUND
