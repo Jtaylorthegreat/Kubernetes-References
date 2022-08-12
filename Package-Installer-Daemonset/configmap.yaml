@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: installer-config
+  namespace: package-installer
+data:
+  install.sh: |
+    #!/bin/bash
+
+    # Update and install packages
+    apt-get update
+    apt-get install atop -y
