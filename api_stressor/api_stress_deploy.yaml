@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apistress-deployment
+  labels:
+    function: stressitout
+spec:
+  replicas: 30
+  selector:
+    matchLabels:
+      function: stressitout
+  template:
+    metadata:
+      labels:
+        function: stressitout
+    spec:
+      containers:
+      - name: stress-my-api
+        image: REPONAMEHERE.azurecr.io/api_stressor:v1
+        command: ["/bin/sh", "-c"]
+        args: ["while true; do ./sc2.sh; done;" ]
+      restartPolicy: Always
