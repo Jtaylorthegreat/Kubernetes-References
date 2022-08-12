@@ -17,3 +17,6 @@
     Daemonset that installs packages to every node (taken from: https://medium.com/@patnaikshekhar/initialize-your-aks-nodes-with-daemonsets-679fa81fd20e and modified to install atop) 
 
 
+**Api_stressor**:
+
+    Deployment that triggers a large amount of API calls in order to test API server limits  
