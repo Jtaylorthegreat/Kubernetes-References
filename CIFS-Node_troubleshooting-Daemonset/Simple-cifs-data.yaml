@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cifs-credits-diag
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      name: cifs-credits-diag
+  template:
+    metadata:
+      labels:
+        name: cifs-credits-diag
+    spec:
+      containers:
+        - name: cifs-credits-diag
+          image: alpine:latest
+          livenessProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - |
+                  disk_usage=$(df -h / | awk '{print $5}' | tail -n 1)
+                  disk_usage_percent=${disk_usage%%%}
+                  if [[ $disk_usage_percent > 50 ]]; then exit 199; fi
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","while killall cifs_credit_diag.sh; do sleep 1; done"]
+          command:
+            - nsenter
+            - --target
+            - "1"
+            - --mount
+            - --uts
+            - --ipc
+            - --pid
+            - --
+            - bash
+            - -c
+            - |
+                #!/bin/bash
+                if ! command -v trace-cmd &> /dev/null
+                  then
+                  # If trace-cmd is not installed, attempt to install it
+                  echo "trace-cmd is not installed. Attempting to install..."
+
+                 # Install trace-cmd using apt-get
+                 DEBIAN_FRONTEND=noninteractive apt-get install -y trace-cmd
+
+                 # Check if installation was successful
+                 if ! command -v trace-cmd &> /dev/null
+                   then
+                   echo "Error: Failed to install trace-cmd." >&2
+                   exit 201
+                   else
+                   echo "trace-cmd is now installed."
+                 fi
+                 else
+                 # If trace-cmd is already installed, print a message indicating that it's installed
+                 echo "trace-cmd is already installed."
+                fi
+
+                #kill trace-cmd:
+                kill_trace_cmd() {
+                    local retry=0
+                        local trace_cmd_pid=$(pgrep trace-cmd | head -1)
+
+                    kill -INT $trace_cmd_pid
+                    while [ $? == 0 ] && [ $retry -lt 10 ]
+                    do
+                           retry=$(( retry + 1 ))
+                       sleep 1
+                           ps -p "$trace_cmd_pid" > /dev/null
+                    done
+
+                    trace-cmd report > /tmp/trace.txt
+                }
+
+                TRACE_CMD_BUFSZ_BYTES=$((16 * 1024 * 1024)) # 16 MB; per-cpu buffer size for trace-cmd
+                TRACE_CMD_INVOCATION="nohup trace-cmd record -e cifs -m $TRACE_CMD_BUFSZ_BYTES"
+                
+                # enable cifs debugging
+                echo 'module cifs +p'   > /sys/kernel/debug/dynamic_debug/control
+                echo 'file fs/cifs* +p' > /sys/kernel/debug/dynamic_debug/control
+                echo 7 > /proc/fs/cifs/cifsFYI
+                $TRACE_CMD_INVOCATION 0<&- > /dev/null 2>&1 &
+
+                echo “Starting capture” >> /tmp/diag.txt
+                date -u >> /tmp/diag.txt
+                cat /proc/uptime >> /tmp/diag.txt
+                uptime >>  /tmp/diag.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/debugdata.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/openfiles.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/stats.txt
+                cat /proc/fs/cifs/DebugData >> /tmp/debugdata.txt
+                cat /proc/fs/cifs/open_files >> /tmp/openfiles.txt
+                cat /proc/fs/cifs/Stats >> /tmp/stats.txt
+
+
+                sleep 30s
+
+                trace-cmd report >> /tmp/diag.txt
+                echo “Stopping capture” >> /tmp/diag.txt
+                date -u >> /tmp/diag.txt
+                uptime >>  /tmp/diag.txt
+                cat /proc/uptime >> /tmp/diag.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/debugdata.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/openfiles.txt
+                echo "-----------------------------------------------$(date)" >> /tmp/stats.txt
+                cat /proc/fs/cifs/DebugData >> /tmp/debugdata.txt
+                cat /proc/fs/cifs/open_files >> /tmp/openfiles.txt
+                cat /proc/fs/cifs/Stats >> /tmp/stats.txt
+                ss -t >> /tmp/diag.txt
+                dmesg -wHT >> /tmp/dmesg.txt
+
+
+                kill_trace_cmd                
+                #disable cifs debugging
+                echo 0 > /proc/fs/cifs/cifsFYI
+                echo 'file fs/cifs* -p' > /sys/kernel/debug/dynamic_debug/control
+                echo 'module cifs -p' > /sys/kernel/debug/dynamic_debug/control
+                exit
+          securityContext:
+            privileged: true
+      hostPID: true
