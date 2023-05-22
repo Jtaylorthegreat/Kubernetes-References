@@ -1,0 +1,58 @@
+#!/bin/bash
+set -e 
+set -o pipefail
+STARTTIME=$(date -u +%Y-%m-%dT%H:%M)
+PIDFILE=/var/run/dspcap.pid
+NAMESPACE=default
+IMAGE=alpine:3.15
+# IMAGE=mcr.microsoft.com/dotnet/runtime-deps:6.0
+TCPDUMP_ARGS="-ni eth0 -e -C 300 -G 1800 -K -W 10"
+
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dspcap
+  namespace: $NAMESPACE
+spec:
+  selector:
+    matchLabels:
+      app: dspcap
+  template:
+    metadata:
+      labels:
+        app: dspcap
+    spec:
+      hostPID: true
+      hostNetwork: true
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      containers:
+      - name: tcpdump
+        command:
+        - nsenter
+        - --mount=/proc/1/ns/mnt
+        - --
+        - bash
+        - -xc
+        - |
+          mkdir -p /tmp/dspcap
+          echo "starting pcap"
+          tcpdump $TCPDUMP_ARGS -w "/tmp/dspcap/$STARTTIME.\$(hostname).pcap" &
+          echo \$! >$PIDFILE
+          wait
+          rm $PIDFILE
+          echo "sleeping forever"
+          sleep infinity
+        image: $IMAGE
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50M
+        securityContext:
+          privileged: true
+EOF
+
+kubectl rollout status daemonset/dspcap -n $NAMESPACE
+echo "Capture started. Use dspcap-stop to stop capture and collect outcome."
