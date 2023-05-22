@@ -26,3 +26,8 @@
  
      cifs-debug.ds.yaml is a Daemonset that sets up CIFs debugging on every node for debugging CIFs credit issues (taken from colleague: https://github.com/jamesonhearn/daemonset-repro/blob/main/cifs-debug.ds.yaml)  Simple-cifs-data.yaml is a simplied version to just pull basic CIFs debug data
     
+**dspcap - daemonset tcpdump**:
+
+    (taken from: https://github.com/tdihp/dspcap) modified tcpdump variables to rotate 10 files out at 300MB each in order not to fill the nodes up with large network captures
+
+     
