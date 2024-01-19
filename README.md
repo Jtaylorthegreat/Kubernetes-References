@@ -30,4 +30,7 @@
 
     (taken from: https://github.com/tdihp/dspcap) modified tcpdump variables to rotate 10 files out at 300MB each in order not to fill the nodes up with large network captures
 
+**ManuallyRevertCgrouptoV1**:
+
+    Daemonset to revert cgroups from v2 to v1 on all nodes in order to temporarily workaround required JDK upgrades (https://kubernetes.io/docs/concepts/architecture/cgroups/)
      
